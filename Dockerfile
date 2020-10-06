@@ -52,6 +52,7 @@ RUN dt-apt-install ${REPO_PATH}/dependencies-apt.txt
 
 # install python3 dependencies
 COPY ./dependencies-py3.txt "${REPO_PATH}/"
+RUN pip install --upgrade pip
 RUN pip3 install --use-feature=2020-resolver -r ${REPO_PATH}/dependencies-py3.txt
 
 # copy the source code
@@ -82,3 +83,10 @@ LABEL org.duckietown.label.module.type="${REPO_NAME}" \
     org.duckietown.label.maintainer="${MAINTAINER}"
 # <== Do not change the code above this line
 # <==================================================
+
+RUN echo "/usr/lib/aarch64-linux-gnu/tegra" >> /etc/ld.so.conf.d/nvidia-tegra.conf \
+    echo "/usr/lib/aarch64-linux-gnu/tegra-egl" >> /etc/ld.so.conf.d/nvidia-tegra.conf \
+    ldconfig
+
+# RUN sudo rm -r /root/.cache/gstreamer-1.0/registry.aarch64.bin
+

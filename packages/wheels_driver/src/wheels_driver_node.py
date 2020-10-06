@@ -35,6 +35,11 @@ class WheelsDriverNode(DTROS):
         GPIO.setup(channel, GPIO.OUT)
         GPIO.output(channel, 1)
 
+        # Overwrite default setting of GPIO pin 31 (for wheel encoders)
+        channel = 31
+        GPIO.setup(channel, GPIO.OUT)
+        GPIO.output(channel, 1)
+
         #if GPIO.input(channel) == 1:
         #    self.log("Reset pin pulled high.")
                     

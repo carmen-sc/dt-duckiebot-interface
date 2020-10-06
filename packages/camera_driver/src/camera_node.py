@@ -8,6 +8,7 @@ import numpy as np
 from threading import Thread
 
 import cv2
+import nanocamera as nano
 import atexit
 import threading
 
@@ -88,6 +89,12 @@ class CameraNode(DTROS):
                     "api_camera.html#picamera.PiCamera.exposure_mode"
         )
 
+        #setup of the nvargus plugins for gstreamer
+        os.system('echo "/usr/lib/aarch64-linux-gnu/tegra" >> /etc/ld.so.conf.d/nvidia-tegra.conf')
+        os.system('echo "/usr/lib/aarch64-linux-gnu/tegra-egl" >> /etc/ld.so.conf.d/nvidia-tegra.conf')
+        os.system('ldconfig')
+
+
         # Setup PiCamera
         #self.image_msg = CompressedImage()
         #self.camera = PiCamera()
@@ -96,21 +103,25 @@ class CameraNode(DTROS):
         #self.camera.exposure_mode = self.parameters['~exposure_mode']
         
         # Following lines (and the string) are taken from the jetbot code, adjusted for the duckietown application
-        self.value = np.empty((480, 640, 3), dtype=np.uint8)
+        #self.value = np.empty((480, 640, 3), dtype=np.uint8)
         
         try:
-            self.cap = cv2.VideoCapture(2)
+            #self.cap = cv2.VideoCapture(2)
+            self.camera = nano.Camera()
             
-            if not self.cap.isOpened():
-                print("cv2 can not open resource")
+            if not self.camera.isReady():
+                raise RuntimeError("nanocam can not open resource")
 
-            re, image = self.cap.read()
+            #if not self.cap.isOpened():
+            #    print("cv2 can not open resource")
 
-            if not re:
-                raise RuntimeError("Could not read image from camera.")
+            #re, image = self.cap.read()
+
+            #if not re:
+            #    raise RuntimeError("Could not read image from camera.")
             
-            self.value = image
-            self.start()
+            #self.value = image
+            #self.start()
 
         except:
             self.stop()
@@ -119,9 +130,9 @@ class CameraNode(DTROS):
         atexit.register(self.stop)
 
         # Set camera parameters
-        self.cap.set(cv2.CAP_PROP_FPS, self._framerate)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._res_w)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,self._res_h)
+        #self.cap.set(cv2.CAP_PROP_FPS, self._framerate)
+        #self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._res_w)
+        #self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,self._res_h)
         #self.cap.set(CV_CAP_PROP_MODE, self.parameters['~exposure_mode'])
         
         # For intrinsic calibration
@@ -188,7 +199,7 @@ class CameraNode(DTROS):
         while not self.is_shutdown:
             
             try:
-                self.start()
+                #self.start()
                 self.grab_and_publish()
 
             except StopIteration:
@@ -219,29 +230,22 @@ class CameraNode(DTROS):
             Args:
                 stream (:obj:`BytesIO`): imagery stream
         """
-        re, image = self.cap.read()
+        #re, image = self.cap.read()
+        frame = self.camera.read()
         bridge = CvBridge()
         
-        #Will not detect "parametersChanged" or any shutdowns
-
-        while re:
-            re, image = self.cap.read()
-
-            #Generate the compressed image
-            if image is not None:
-                image = np.uint8(image)
-                
+        while self.camera.isReady():
+            if frame is not None:
+                frame = np.uint8(frame)
+            
             stamp = rospy.Time.now()
-            image_message = bridge.cv2_to_compressed_imgmsg(image, dst_format='jpeg')
-                
-            #not sure if this actualy does something/ gets published
+            image_message = bridge.cv2_to_compressed_imgmsg(frame, dst_format='jpeg')
+
             image_message.header.stamp = stamp
             image_message.header.frame_id = self.frame_id
 
-            #Publish the compressed image
             self.pub_img.publish(image_message)
 
-            # Publish the CameraInfo message 
             self.current_camera_info.header.stamp = stamp
             self.pub_camera_info.publish(self.current_camera_info)
 
@@ -250,17 +254,45 @@ class CameraNode(DTROS):
                 self.has_published = True
 
             rospy.sleep(rospy.Duration.from_sec(0.001))
+
+
+            #Will not detect "parametersChanged" or any shutdowns
+
+        #while re:
+            #re, image = self.cap.read()
+            
+            #Generate the compressed image
+            #if image is not None:
+                #image = np.uint8(image)
+                
+            #stamp = rospy.Time.now()
+            #image_message = bridge.cv2_to_compressed_imgmsg(image, dst_format='jpeg')
+                
+            #not sure if this actualy does something/ gets published
+            #image_message.header.stamp = stamp
+            #image_message.header.frame_id = self.frame_id
+
+            #Publish the compressed image
+            #self.pub_img.publish(image_message)
+
+            # Publish the CameraInfo message 
+            #self.current_camera_info.header.stamp = stamp
+            #self.pub_camera_info.publish(self.current_camera_info)
+
+            #if not self.has_published:
+            #    self.log("Published the first image.")
+            #    self.has_published = True
+
+            #rospy.sleep(rospy.Duration.from_sec(0.001))
+        
         
 
 
-    def start(self):
-        if not self.cap.isOpened():
-            self.cap.open(2)
-        
+    #def start(self):
+    #    self.frame = camera.read()
 
     def stop(self):
-        if hasattr(self, 'cap'):
-            self.cap.release()
+        self.camera.release()
 
 
     def srv_set_camera_info_cb(self, req):
